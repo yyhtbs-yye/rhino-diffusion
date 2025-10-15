@@ -6,7 +6,7 @@ boat:
   
   models:
     latent_encoder:
-      path: 'rhdiffusion.nn.wrappers.autoencoder_kl_wrapper'
+      path: 'rhcompression.nn.wrappers.autoencoder_kl_wrapper'
       name: 'AutoencoderKLWrapper'
       pretrained: 'stabilityai/sd-vae-ft-mse'
 

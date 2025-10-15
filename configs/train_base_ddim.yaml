@@ -63,7 +63,6 @@ trainer:
   max_epochs: $max_epochs
   val_check_epochs: 1
   state_save_epochs: 1
-  save_images: true
 
 validation: 
   save_images: true
@@ -73,14 +72,14 @@ validation:
     psnr:
       path: 'torchmetrics.image'
       name: 'PeakSignalNoiseRatio'
-      wrapper: 'rhcore.metrics.wrappers.dict_2_params.Dict2ListParams'
       params:
         data_range: 2.0
+      wrapper: 'rhcore.metrics.wrappers.dict_2_params.Dict2ListParams'
     ssim:
       path: 'torchmetrics.image'
       name: 'StructuralSimilarityIndexMeasure'
-      wrapper: 'rhcore.metrics.wrappers.dict_2_params.Dict2ListParams'
       params: {}
+      wrapper: 'rhcore.metrics.wrappers.dict_2_params.Dict2ListParams'
 
 data:
   path: rhcore.data.data_modules.ddp_data_module

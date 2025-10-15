@@ -1,0 +1,117 @@
+_import: configs/sr3/train_base_sr3.yaml
+
+boat:
+  path: 'rhino.boats.diffusions.base_diffusion_boat'
+  name: 'BaseDiffusionBoat'
+
+  hooks:
+    type: 'rhcore.hooks.basic_hooks'
+    model_layer_names: 
+      'net': ['transformer_blocks.3.ff.net.2']
+
+  models:
+    net:
+      path: 'rhdiffusion.nn.wrappers.dit_2d_flexible_wrapper'
+      name: 'DiT2DFlexibleWrapper'
+      config:
+        mode: 'concat'
+        sample_size: 4
+        sample_channels: 4
+        patch_size: 1
+        num_layers: 8
+        condition_channels: 3
+        out_channels: 4
+        num_embeds_ada_norm: 1
+        attention_head_dim: 64
+        num_attention_heads: 8
+        norm_num_groups: 32
+        norm_eps: 0.00001
+
+    latent_encoder:
+      path: 'rhdiffusion.nn.wrappers.autoencoder_kl_wrapper' 
+      name: 'AutoencoderKLWrapper'
+      pretrained: 'stabilityai/sd-vae-ft-mse'
+
+    context_encoder:
+      path: torch.nn
+      name: Identity
+      params: {}
+
+  losses:
+    net:
+      path: 'rhdiffusion.nn.losseses.wrappers.repa_loss'
+      name: 'REPALoss'
+      params: 
+        feature_dim: 512
+        target_dim: 768
+data: 
+  path: rhcore.data.data_modules.ddp_data_module
+  name: DistTrainDistValidDataModule
+  config: 
+    train_dataloader: 
+      dataset:
+        path: 'rhcore.data.datasets.basic_image_dataset'
+        name: 'BasicImageDataset'
+        params: 
+          folder_paths:
+            gt: data/ffhq/ffhq_imgs/ffhq_256
+            cond: data/ffhq/ffhq_imgs/ffhq_32
+            fx: data/ffhq/ffhq_dinov2_base_npz/ffhq_256
+          extensions:
+            gt: [png, jpg]
+            cond: [png, jpg]
+            fx: [npz]
+          data_prefix:
+            gt: ''
+            cond: ''
+            fx: ''
+          pipeline:
+            - type: LoadImageFromFile
+              keys: [gt, cond]
+            - type: LoadArrayFromNpz
+              keys: [fx]
+            - type: Normalize
+              keys: [gt, cond]
+              mean: [0.5, 0.5, 0.5]
+              std: [0.5, 0.5, 0.5]
+      batch_size: 16
+      num_workers: 16
+      pin_memory: false
+      persistent_workers: false
+      sampler:
+        type: DefaultSampler
+        shuffle: true
+    
+    valid_dataloader: 
+      dataset: 
+        path: 'rhcore.data.datasets.basic_image_dataset'
+        name: 'BasicImageDataset'
+        params: 
+          folder_paths: 
+            gt: data/celeba/subsets/celeba_256
+            cond: data/celeba/subsets/celeba_32
+          data_prefix:
+            gt: ''
+            cond: ''
+          extensions:
+            gt: [png, jpg]
+            cond: [png, jpg]
+          pipeline:
+            - type: LoadImageFromFile
+              keys: [gt, cond]
+            - type: Normalize
+              keys: [gt, cond]
+              mean: [0.5, 0.5, 0.5]
+              std: [0.5, 0.5, 0.5]
+      batch_size: 32
+      num_workers: 32
+      persistent_workers: true
+      sampler:
+        type: DefaultSampler
+        shuffle: true
+
+_vars:
+
+  device: [2]
+  experiment_name: sr3_dit_repa_base_ffhq_32_256
+  ema_start: 0

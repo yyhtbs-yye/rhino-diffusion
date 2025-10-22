@@ -50,7 +50,7 @@ class SR3DiffusionBoat(BaseDiffusionBoat):
 
         return losses
         
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx, epoch):
 
         batch = move_to_device(batch, self.device)
 

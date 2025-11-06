@@ -1,6 +1,6 @@
 import torch
 
-from rhdiffusion.boat.base_diffusion_boat import BaseDiffusionBoat
+from rhdiffusion.boats.base_diffusion_boat import BaseDiffusionBoat
 from rhtrain.utils.ddp_utils import move_to_device
 
 class SR3DiffusionBoat(BaseDiffusionBoat):

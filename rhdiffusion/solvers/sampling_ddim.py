@@ -35,10 +35,13 @@ class DDIMSampler:
 
         for i, t in enumerate(timesteps_iter):
             model_input = self.sampler.scale_model_input(noise, t)
-            noise_pred = network(model_input, t, encoder_hidden_states)
+            ts = t.repeat(model_input.size(0)).to(model_input.device)
+            noise_pred = network(model_input, ts, encoder_hidden_states)
 
             if hasattr(noise_pred, 'sample'):
                 noise_pred = noise_pred.sample
+            if isinstance(noise_pred, dict) and 'sample' in noise_pred:
+                noise_pred = noise_pred['sample']
             
             noise = self.sampler.step(noise_pred, t, noise, **extra_step_kwargs)["prev_sample"]
 

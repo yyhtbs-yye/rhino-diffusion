@@ -1,6 +1,6 @@
 import torch
 
-from rhdiffusion.boat.base_diffusion_boat import BaseDiffusionBoat
+from rhdiffusion.boats.base_diffusion_boat import BaseDiffusionBoat
 from rhtrain.utils.ddp_utils import move_to_device
 
 class LatentDiffusionBoat(BaseDiffusionBoat):
@@ -90,4 +90,7 @@ class LatentDiffusionBoat(BaseDiffusionBoat):
     def encode_images(self, x):
         # Encode images to latent space
         z = self.models['latent_encoder'].encode(x)
+        if not isinstance(z, torch.Tensor):
+            z = z.sample()
+
         return z

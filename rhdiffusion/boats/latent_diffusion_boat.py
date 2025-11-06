@@ -15,11 +15,8 @@ class LatentDiffusionBoat(BaseDiffusionBoat):
     def predict(self, noise):
         
         network_in_use = self.models['net_ema'] if self.use_ema and 'net_ema' in self.models else self.models['net']
-
         z0_hat = self.models['solver'].solve(network_in_use, noise)
-
         x0_hat = self.decode_latents(z0_hat)
-        
         result = torch.clamp(x0_hat, -1, 1)
         
         return result
@@ -27,23 +24,16 @@ class LatentDiffusionBoat(BaseDiffusionBoat):
     def training_calc_losses(self, batch):
 
         gt = batch['gt']
-
         batch_size = gt.size(0)
-        
         with torch.no_grad():
             latents = self.encode_images(gt)
 
         # Initialize random noise in latent space
         noise = torch.randn_like(latents)
-
         timesteps = self.models['scheduler'].sample_timesteps(batch_size, self.device)
-        
         zt = self.models['scheduler'].perturb(latents, noise, timesteps)
-
         targets = self.models['scheduler'].get_targets(latents, noise, timesteps)
-        
         z0_hat = self.models['net'](zt, timesteps)['sample']
-        
         weights = self.models['scheduler'].get_loss_weights(timesteps)
 
         train_output = {
@@ -85,12 +75,12 @@ class LatentDiffusionBoat(BaseDiffusionBoat):
     def decode_latents(self, z):
         # Scale latents according to VAE configuration
         x = self.models['latent_encoder'].decode(z)
-        return x
+        return x / self.models['latent_encoder'].scaling_factor
     
     def encode_images(self, x):
         # Encode images to latent space
         z = self.models['latent_encoder'].encode(x)
         if not isinstance(z, torch.Tensor):
-            z = z.sample()
+            z = z.mode()
 
-        return z
+        return z * self.models['latent_encoder'].scaling_factor

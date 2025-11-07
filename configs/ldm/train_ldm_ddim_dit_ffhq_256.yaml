@@ -15,6 +15,26 @@ boat:
         in_channels: $in_channels
         hidden_size: $hidden_size
 
+    # net:
+    #   path: 'diffusers.models.unets'
+    #   name: 'UNet2DModel'
+    #   config:
+    #     in_channels: $in_channels
+    #     out_channels: $in_channels
+    #     sample_size: $img_size
+    #     down_block_types: ['DownBlock2D', 'DownBlock2D', 'DownBlock2D', 'AttnDownBlock2D']
+    #     up_block_types: ['AttnUpBlock2D', 'UpBlock2D', 'UpBlock2D', 'UpBlock2D']
+    #     block_out_channels: [64, 128, 256, 256]
+    #     layers_per_block: 1
+    #     attention_head_dim: 8
+    #     norm_num_groups: 32
+    #     norm_eps: 0.00001
+
+    # latent_encoder:
+    #   path: 'rhcompression.nn.wrappers.autoencoder_kl_wrapper'
+    #   name: 'AutoencoderKLWrapper'
+    #   pretrained: 'stabilityai/sd-vae-ft-mse'
+
     latent_encoder:
       path: 'rhcompression.nn.model_zoo.autoencoder_kl'
       name: 'AutoencoderKL'
@@ -31,7 +51,7 @@ boat:
           attn_resolutions: []      # no self-attn in the VAE
           dropout: 0.0
         embed_dim: 4
-        pretrained: 'pretrained/vavae_ffhq_256_pretrained_models/net_ema_pretrained.pt'
+        load_pretrained: 'pretrained/sdvae_ffhq_256_pretrained_models/net_ema_pretrained.pt'
 
     scheduler:
       path: 'rhdiffusion.schedulers.scheduling_ddim'
@@ -126,10 +146,10 @@ callbacks:
 
 _vars:
 
-  devices: [0]
+  devices: [1]
   max_epochs: 200
 
-  train_batch_size: 32
+  train_batch_size: 128
   valid_batch_size: 16
   num_workers: 16
 

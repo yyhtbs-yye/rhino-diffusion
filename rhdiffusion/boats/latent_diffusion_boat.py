@@ -64,23 +64,29 @@ class LatentDiffusionBoat(BaseDiffusionBoat):
 
             x0_hat = self.predict(noise)
 
+            ref = self.decode_latents(latents)
+
             valid_output = {'preds': x0_hat, 'targets': gt,}
 
             metrics = self._calc_metrics(valid_output)
 
-            named_imgs = {'gt': gt, 'gen': x0_hat,}
+            named_imgs = {'gt': gt, 'gen': x0_hat, 'ref': ref,}
 
         return metrics, named_imgs
     
     def decode_latents(self, z):
         # Scale latents according to VAE configuration
         x = self.models['latent_encoder'].decode(z)
-        return x / self.models['latent_encoder'].scaling_factor
-    
+
+        # if hasattr(self.models['latent_encoder'], 'scaling_factor'):
+        #     return x / self.models['latent_encoder'].scaling_factor
+        return x
     def encode_images(self, x):
         # Encode images to latent space
         z = self.models['latent_encoder'].encode(x)
         if not isinstance(z, torch.Tensor):
             z = z.mode()
 
-        return z * self.models['latent_encoder'].scaling_factor
+        # if hasattr(self.models['latent_encoder'], 'scaling_factor'):
+        #     return z * self.models['latent_encoder'].scaling_factor
+        return z

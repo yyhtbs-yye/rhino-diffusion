@@ -4,18 +4,8 @@ from rhdiffusion.boats.base_diffusion_boat import BaseDiffusionBoat
 from rhtrain.utils.ddp_utils import move_to_device
 
 class SR3DiffusionBoat(BaseDiffusionBoat):
-
-    def predict(self, noise, upsampled):
         
-        network_in_use = self.models['net_ema'] if self.use_ema and 'net_ema' in self.models else self.models['net']
-            
-        x0_hat = self.models['solver'].solve(network_in_use, noise, upsampled)
-        
-        result = torch.clamp(x0_hat, -1, 1)
-        
-        return result
-        
-    def training_calc_losses(self, batch):
+    def diffusion_calc_losses(self, batch):
 
         gt = batch['gt']
         lq = batch['lq']

@@ -1,45 +1,60 @@
 import torch
 
 from rhcore.boats.base_boat import BaseBoat
+
+from rhcore.utils.build_components import build_modules
 from rhtrain.utils.ddp_utils import move_to_device
 
 class BaseDiffusionBoat(BaseBoat):
 
-    def predict(self, noise):
-        
-        network_in_use = self.models['net_ema'] if self.use_ema and 'net_ema' in self.models else self.models['net']
+    def __init__(self, config={}):
+        super().__init__(config=config)
 
-        x0_hat = self.models['solver'].solve(network_in_use, noise)
+        self.sampler_config = self.boat_config.get('samplers')
+        self.samplers = self.build_samplers(self.sampler_config)
 
-        result = torch.clamp(x0_hat, -1, 1)
+        # The default training loop for single entity training
+        if self.ordered_groups is None or len(self.ordered_groups) == 0:
+            self.ordered_groups = [
+                {
+                    'boat_loss_method_str': 'diffusion_calc_losses',
+                    'target_loss_name': 'total_loss',
+                    'models': ['net'],
+                    'optimizers': ['net'],
+                    'train_interval': 1,
+                },
+            ]
         
-        return result
-        
-    def training_calc_losses(self, batch):
+        self.data_name = 'gt'
 
-        gt = batch['gt']
+    def maybe_get_ema(self, name):
+        return self.models[f'{name}_ema'] if f'{name}_ema' in self.models and self.use_ema else self.models[name]
 
-        batch_size = gt.size(0)
+    @torch.no_grad()
+    def predict(self, xT):
         
-        # Initialize random noise in latent space
-        noise = torch.randn_like(gt)
+        net = self.maybe_get_ema('net')
+        x0_hat = self.samplers['net'].solve(net, xT)
+        
+        return torch.clamp(x0_hat, -1, 1)
+        
+    def diffusion_calc_losses(self, batch):
 
-        # Sample random timesteps
-        timesteps = self.models['scheduler'].sample_timesteps(batch_size, self.device)
-        
-        # Add noise to latents according to noise schedule
-        xt = self.models['scheduler'].perturb(gt, noise, timesteps)
+        x0 = batch[self.data_name]
 
-        # Get targets for the denoising process
-        targets = self.models['scheduler'].get_targets(gt, noise, timesteps)
+        batch_size = x0.size(0)
         
-        x0_hat = self.models['net'](xt, timesteps)['sample']
-        
-        weights = self.models['scheduler'].get_loss_weights(timesteps)
+        xT = torch.randn_like(x0)
 
-        train_output = {'preds': x0_hat,
-                        'targets': targets,
-                        'weights': weights,
+        timestep = self.samplers['net'].sample_timestep(batch_size, self.device)
+        xt = self.samplers['net'].perturb(x0, xT, timestep)
+
+        eps = self.samplers['net'].get_target(x0, xT, timestep)
+        eps_hat = self.models['net'](xt, timestep)['sample']
+        
+        weight = self.samplers['net'].get_loss_weight(timestep)
+
+        train_output = {'prediction': eps_hat, 'target': eps, 'weight': weight,
                         **batch}
         
         losses = {'total_loss': torch.tensor(0.0, device=self.device)}
@@ -49,22 +64,25 @@ class BaseDiffusionBoat(BaseBoat):
 
         return losses
         
+    @torch.no_grad()
     def validation_step(self, batch, batch_idx, epoch):
 
         batch = move_to_device(batch, self.device)
 
-        gt = batch['gt']
+        x0 = batch[self.data_name]
 
-        with torch.no_grad():
+        xT = torch.randn_like(x0)
 
-            noise = torch.randn_like(gt)
+        x0_hat = self.predict(xT)
 
-            x0_hat = self.predict(noise)
+        valid_output = {'generation': x0_hat, 'target': x0,}
 
-            valid_output = {'preds': x0_hat, 'targets': gt,}
+        metrics = self.calc_metrics(valid_output)
 
-            metrics = self._calc_metrics(valid_output)
-
-            named_imgs = {'gt': gt, 'gen': x0_hat,}
+        named_imgs = {'generation': x0_hat, 'target': x0,}
 
         return metrics, named_imgs
+
+    def build_samplers(self, sampler_config):
+        
+        return build_modules(sampler_config)

@@ -5,13 +5,14 @@ from rhdiffusion.boats.base_diffusion_boat import BaseDiffusionBoat
 from rhcore.utils.build_components import build_modules
 from rhtrain.utils.ddp_utils import move_to_device
 
-class ConditionedDiffusionBoat(BaseDiffusionBoat):
+class ConditionedLatentDiffusionBoat(BaseDiffusionBoat):
 
     def __init__(self, config={}):
         super().__init__(config=config)
 
         self.data_name = 'gt'
         self.cond_name = 'cond'
+        self.latent_dim = None
 
     @torch.no_grad()
     def predict(self, noise, cond=None):
@@ -24,6 +25,9 @@ class ConditionedDiffusionBoat(BaseDiffusionBoat):
         else:
             data_hat = self.samplers['net'].solve(net, noise)
 
+        if 'latent_encoder' in self.pretrained:
+            data_hat = self.pretrained['latent_encoder'].decode(data_hat)
+
         return torch.clamp(data_hat, -1, 1)
 
     def diffusion_calc_losses(self, batch):
@@ -33,6 +37,10 @@ class ConditionedDiffusionBoat(BaseDiffusionBoat):
 
         if cond is not None:
             cond = self.processors['preproc'](cond)
+
+        if 'latent_encoder' in self.pretrained:
+            data = self.pretrained['latent_encoder'].encode(data)
+            self.latent_dim = data.shape[1:]
 
         batch_size = data.size(0)
         
@@ -68,8 +76,17 @@ class ConditionedDiffusionBoat(BaseDiffusionBoat):
         cond = batch.get(self.cond_name, None)
 
         data = batch[self.data_name]
+        batch_size = data.size(0)
 
-        noise = torch.randn_like(data)
+        if self.latent_dim is not None and 'latent_encoder' in self.pretrained:
+            noise = torch.randn([batch_size, *self.latent_dim], device=self.device)
+        elif self.latent_dim is None and 'latent_encoder' in self.pretrained:
+            latent_example = self.pretrained['latent_encoder'].encode(data[:1])
+            self.latent_dim = latent_example.shape[1:]
+            noise = torch.randn([batch_size, *self.latent_dim], device=self.device) 
+            del latent_example
+        else:
+            noise = torch.randn_like(data)
 
         data_hat = self.predict(noise, cond)
 

@@ -20,6 +20,15 @@ class AutoencoderKLWrapper(nn.Module):
         x = self.model.decode(z).sample
         return x
     
+    # This is for compatibility with encoding interfaces
+    def forward(self, x, mode='encode'):
+        if mode == 'encode':
+            return self.encode(x)
+        elif mode == 'decode':
+            return self.decode(x)
+        else:
+            raise ValueError(f"Unsupported mode: {mode}")
+
     @staticmethod
     def from_pretrained(pretrained_model_name_or_path):
         model = AutoencoderKL.from_pretrained(pretrained_model_name_or_path)

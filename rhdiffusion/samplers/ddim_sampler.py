@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import torch
 import inspect
 from diffusers import DDIMScheduler
@@ -8,9 +10,12 @@ class DDIMSampler:
         self.eta = eta
 
     @classmethod
-    def from_config(cls, config: dict) -> 'DDIMSampler':
+    def from_config(cls, config: dict):
 
         num_inference_steps = config.pop('num_inference_steps', 50)
+
+        config = deepcopy(config)
+
         eta = config.pop('eta', None)
 
         scheduler = DDIMScheduler.from_config(config)
@@ -20,7 +25,7 @@ class DDIMSampler:
         return cls(scheduler=scheduler, eta=eta)
 
     @torch.no_grad()
-    def solve(self, network, noise, encoder_hidden_states=None, seed=None):
+    def solve(self, network, noise, cond=None, seed=None):
         generator = None
         if seed is not None:
             generator = torch.Generator(device=network.device).manual_seed(seed)
@@ -36,7 +41,11 @@ class DDIMSampler:
         for i, t in enumerate(timesteps_iter):
             model_input = self.scheduler.scale_model_input(noise, t)
             ts = t.repeat(model_input.size(0)).to(model_input.device)
-            noise_pred = network(model_input, ts, encoder_hidden_states)
+            
+            if cond is not None:
+                noise_pred = network(model_input, ts, cond)
+            else:
+                noise_pred = network(model_input, ts)
 
             if hasattr(noise_pred, 'sample'):
                 noise_pred = noise_pred.sample

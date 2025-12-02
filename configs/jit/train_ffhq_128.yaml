@@ -1,0 +1,68 @@
+_import: configs/train_base_config.yaml
+
+boat:
+
+  path: rhdiffusion.boats.jit_boat
+  name: JiTBoat
+
+  models:
+    net:
+      path: 'rhdiffusion.nn.model_zoo.jit.generator'
+      name: 'JiT'
+      params:
+        input_size: $input_size
+        patch_size: $patch_size
+        num_classes: 0
+        in_channels: $in_channels
+        hidden_size: $hidden_size
+        depth: $depth
+
+  losses: 
+    net:
+      path: 'rhopsr.nn.losses.weighted_loss'
+      name: 'WeightedLoss'
+      params:
+        base_loss_fn_str: mse
+      wrapper: # This wrapper is more complex needs parameters
+        mpath: 'rhopsr.nn.losses.wrappers.list_of_keys.ListOfKeys'
+        params:
+          keys: ["prediction", "target", "weight"]
+
+  samplers:
+    net:
+      path: 'rhdiffusion.samplers.jit_solver'
+      name: 'JiTSolver'         # Name of the model class to use
+      config: {}
+
+trainer: 
+  devices: $devices
+  max_epochs: $max_epochs
+  val_check_epochs: 1
+  state_save_epochs: 1
+  fup_by_key: 
+    net: true
+
+_vars:
+
+  devices: [0, 1, 6, 7]
+  max_epochs: 500
+
+  train_batch_size: 64
+  valid_batch_size: 16
+  num_workers: 16
+
+  input_size: 128
+  patch_size: 16
+  in_channels: 3
+  hidden_size: 512
+  depth: 24
+
+  train_folder_paths:
+    gt: data/ffhq/ffhq_imgs/ffhq_128
+    
+  valid_folder_paths:
+    gt: data/celeba/subsets/celeba_128
+
+  experiment_name: jit_ffhq_128
+
+  ema_start: 0
